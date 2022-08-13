@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option go_package = "github.com/youdofoo/grpc-chat/pb";
+
+package pb;
+
+import "google/protobuf/empty.proto";
+
+service Chat {
+    rpc GetRooms(google.protobuf.Empty) returns (Rooms) {}
+    rpc Chat(stream ChatMessage) returns (stream ChatMessage) {}
+}
+
+message Rooms {
+    repeated Room rooms = 1;
+}
+
+message Room {
+    string name = 1;
+}
+
+message ChatMessage {
+    string roomName = 1;
+    string text = 2;
+}
