@@ -53,15 +53,18 @@ func (s *chatServer) GetRooms(ctx context.Context, in *empty.Empty) (*pb.Rooms, 
 func (s *chatServer) Chat(stream pb.Chat_ChatServer) error {
 	var roomName string
 	var userName string
+
+	defer func() {
+		s.leave(roomName, userName)
+	}()
+
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF {
 			// Client leaved
-			s.leave(roomName, userName)
 			return nil
 		}
 		if err != nil {
-			s.leave(roomName, userName)
 			return err
 		}
 		switch msg.Type {
