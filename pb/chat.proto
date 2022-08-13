@@ -19,7 +19,15 @@ message Room {
     string name = 1;
 }
 
+
 message ChatMessage {
-    string roomName = 1;
-    string text = 2;
+    ChatMessageType type = 1;
+    string roomName = 2;
+    string userName = 3;
+    string text = 4;
+}
+
+enum ChatMessageType {
+    JOIN = 0;
+    SEND = 1;
 }
