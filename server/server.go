@@ -41,6 +41,7 @@ func newServer() pb.ChatServer {
 }
 
 func (s *chatServer) GetRooms(ctx context.Context, in *empty.Empty) (*pb.Rooms, error) {
+	log.Printf("[INFO] GetRooms called\n")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	rooms := make([]*pb.Room, 0, len(s.rooms))
@@ -53,10 +54,6 @@ func (s *chatServer) GetRooms(ctx context.Context, in *empty.Empty) (*pb.Rooms, 
 func (s *chatServer) Chat(stream pb.Chat_ChatServer) error {
 	var roomName string
 	var userName string
-
-	defer func() {
-		s.leave(roomName, userName)
-	}()
 
 	for {
 		msg, err := stream.Recv()
@@ -75,6 +72,9 @@ func (s *chatServer) Chat(stream pb.Chat_ChatServer) error {
 			if err != nil {
 				return err
 			}
+			defer func() {
+				s.leave(roomName, userName)
+			}()
 		case pb.ChatMessageType_SEND:
 			if msg.RoomName != roomName || msg.UserName != userName {
 				// ignore invalid room or user
@@ -95,24 +95,27 @@ func (s *chatServer) join(roomName, userName string, stream pb.Chat_ChatServer) 
 		r = s.createRoom(roomName, stream)
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if _, ok := r.users[userName]; ok {
+		s.mu.Unlock()
 		return status.Errorf(codes.AlreadyExists, "user %s already exists in room %s", userName, roomName)
 	}
 	r.users[userName] = &user{
 		name:   userName,
 		stream: stream,
 	}
+	s.mu.Unlock()
 
 	// send all past messages
 	s.mu.RLock()
-	defer s.mu.RUnlock()
 	for _, msg := range r.messages {
 		err := stream.Send(msg)
 		if err != nil {
 			return err
 		}
 	}
+	s.mu.RUnlock()
+
+	log.Printf("[INFO] %s joined to %s\n", userName, roomName)
 
 	return nil
 }
@@ -136,6 +139,7 @@ func (s *chatServer) send(msg *pb.ChatMessage) error {
 }
 
 func (s *chatServer) leave(roomName, userName string) {
+	log.Printf("[INFO] %s leaved from %s\n", userName, roomName)
 	r := s.lookupRoom(roomName)
 	if r == nil {
 		return
